@@ -8,4 +8,9 @@ export default defineConfig({
             refresh: true,
         }),
     ],
+    server: {
+        hmr: {
+            host: 'http://hotel-reservation-production.up.railway.app'
+        }
+    }
 });
