@@ -9,10 +9,10 @@ class Room extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['number', 'floor_id', 'is_available'];
+    protected $fillable = ['room_number', 'floor', 'is_booked', 'travel_time'];
 
-    public function floor()
+    public function scopeAvailable($query)
     {
-        return $this->belongsTo(Floor::class);
+        return $query->where('is_booked', false);
     }
 }

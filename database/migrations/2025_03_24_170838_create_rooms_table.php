@@ -1,30 +1,24 @@
 <?php
-
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
+return new class extends Migration {
+    public function up()
     {
         Schema::create('rooms', function (Blueprint $table) {
             $table->id();
             $table->integer('room_number')->unique();
-            $table->foreignId('floor_id')->constrained()->onDelete('cascade');
+            $table->integer('floor_number');
             $table->boolean('is_booked')->default(false);
+            $table->integer('travel_time')->nullable(); // Store travel time per booking
             $table->timestamps();
-        });      
+        });
     }
 
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
+    public function down()
     {
         Schema::dropIfExists('rooms');
     }
 };
+

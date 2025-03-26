@@ -2,16 +2,11 @@
 
 namespace App\Livewire;
 
-use App\Models\Booking;
-use App\Models\BookingRoom;
-use App\Models\Guest;
 use App\Models\Room;
 use Livewire\Component;
-use Symfony\Component\Console\Event\ConsoleEvent;
 
 class RoomBooking extends Component
 {
-    public $guestName;
     public $roomCount;
     public $availableRooms = [];
 
@@ -22,15 +17,13 @@ class RoomBooking extends Component
 
     public function refreshAvailableRooms()
     {
-        $bookedRoomIds = BookingRoom::pluck('room_id')->toArray();
-        $this->availableRooms = Room::whereNotIn('id', $bookedRoomIds)->pluck('room_number')->toArray();
+        $this->availableRooms = Room::where('is_booked', false)->pluck('room_number')->toArray();
         $this->dispatch('refreshRooms');
     }
 
     public function bookRooms()
     {
         $this->validate([
-            'guestName' => 'required',
             'roomCount' => 'required|integer|min:1',
         ]);
 
@@ -38,45 +31,70 @@ class RoomBooking extends Component
             $this->dispatch('bookingError', 'You cannot book more than 5 rooms.');
             return;
         }
+        // Group available rooms by floor
+        $availableRoomsByFloor = Room::where('is_booked', false)
+            ->orderBy('floor_number')
+            ->orderBy('room_number')
+            ->get()
+            ->groupBy('floor_number');
 
-        $guest = Guest::create(['name' => $this->guestName]);
+        $selectedRooms = collect();
 
-        $rooms = Room::whereNotIn('id', BookingRoom::pluck('room_id'))->take($this->roomCount)->get();
+        // Try to book rooms on the same floor first
+        foreach ($availableRoomsByFloor as $floorRooms) {
+            if ($floorRooms->count() >= $this->roomCount) {
+                $selectedRooms = $floorRooms->take($this->roomCount);
+                break;
+            }
+        }
 
-        if ($rooms->count() < $this->roomCount) {
+        // If not enough rooms on one floor, select rooms with minimum travel time
+        if ($selectedRooms->count() < $this->roomCount) {
+            $remainingRooms = $this->roomCount - $selectedRooms->count();
+            $extraRooms = Room::where('is_booked', false)
+                ->whereNotIn('id', $selectedRooms->pluck('id'))
+                ->take($remainingRooms)
+                ->get();
+
+            $selectedRooms = $selectedRooms->merge($extraRooms);
+        }
+
+        if ($selectedRooms->count() < $this->roomCount) {
             $this->dispatch('bookingError', 'Not enough rooms available.');
             return;
         }
 
-        $booking = Booking::create(['guest_id' => $guest->id, 'total_travel_time' => 0]);
+        // Calculate Travel Time
+        $floors = $selectedRooms->pluck('floor_number')->unique()->sort()->values();
+        $horizontalTravel = $selectedRooms->max('room_number') - $selectedRooms->min('room_number');
+        $verticalTravel = ($floors->last() - $floors->first()) * 2; // 2 minutes per floor
+        $totalTravelTime = $horizontalTravel + $verticalTravel;
 
-        foreach ($rooms as $room) {
-            BookingRoom::create(['booking_id' => $booking->id, 'room_id' => $room->id]);
-            $room->update(['is_booked' => true]);
+        // Update booked rooms
+        foreach ($selectedRooms as $room) {
+            $room->update([
+                'is_booked' => true,
+                'travel_time' => $totalTravelTime,
+            ]);
         }
 
-        $this->dispatch('bookingSuccess', 'Your room has been booked successfully!');
+        $this->dispatch('bookingSuccess', 'Rooms booked successfully! Total Travel Time: ' . $totalTravelTime . ' min');
         $this->refreshAvailableRooms();
-        $this->reset(['guestName', 'roomCount']);
+        $this->reset(['roomCount']);
     }
 
     public function resetBookings()
     {
-        \DB::statement('SET FOREIGN_KEY_CHECKS=0;'); // Disable FK checks
-        BookingRoom::truncate();
-        Booking::truncate();
-        \DB::statement('SET FOREIGN_KEY_CHECKS=1;'); // Enable FK checks
-    
-        Room::query()->update(['is_booked' => false]);
-    
+        Room::query()->update(['is_booked' => false, 'travel_time' => null]);
+
         $this->refreshAvailableRooms();
         $this->dispatch('refreshRooms');
         $this->dispatch('bookingSuccess', 'All bookings have been reset.');
-    }    
+    }
 
     public function randomBooking()
     {
-        $availableRooms = Room::whereNotIn('id', BookingRoom::pluck('room_id'))->pluck('id')->toArray();
+        $availableRooms = Room::where('is_booked', false)->pluck('id')->toArray();
 
         if (empty($availableRooms)) {
             $this->dispatch('bookingError', 'No rooms available!');
@@ -86,11 +104,7 @@ class RoomBooking extends Component
         $roomCount = rand(1, 5);
         $randomRooms = array_rand($availableRooms, min($roomCount, count($availableRooms)));
 
-        $guest = Guest::create(['name' => 'Random Guest']);
-        $booking = Booking::create(['guest_id' => $guest->id, 'total_travel_time' => 0]);
-
         foreach ((array) $randomRooms as $roomKey) {
-            BookingRoom::create(['booking_id' => $booking->id, 'room_id' => $availableRooms[$roomKey]]);
             Room::where('id', $availableRooms[$roomKey])->update(['is_booked' => true]);
         }
 

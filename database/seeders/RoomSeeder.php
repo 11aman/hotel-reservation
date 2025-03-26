@@ -14,12 +14,12 @@ class RoomSeeder extends Seeder
      */
     public function run(): void
     {
-        foreach (Floor::all() as $floor) {
-            $roomCount = $floor->number == 10 ? 7 : 10;
+        foreach (range(1,10) as $floor) {
+            $roomCount = $floor == 10 ? 7 : 10;
             for ($i = 1; $i <= $roomCount; $i++) {
                 Room::create([
-                    'room_number' => $floor->number * 100 + $i,
-                    'floor_id' => $floor->id,
+                    'room_number' => $floor * 100 + $i,
+                    'floor_number' => $floor,
                 ]);
             }
         }

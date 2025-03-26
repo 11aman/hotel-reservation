@@ -1,8 +1,6 @@
 <div class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-r from-blue-400 to-purple-500 p-6">
     <!-- Booking Controls -->
     <div class="flex space-x-2 mb-6">
-        <input type="text" placeholder="Guest Name" wire:model="guestName"
-            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition duration-200">
         <input type="number" placeholder="Rooms (1-5)" min="1" max="5" wire:model="roomCount"
             class="w-24 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition duration-200">
         <button wire:click="bookRooms"
@@ -18,6 +16,7 @@
             Random
         </button>
     </div>
+
 
     <!-- Success Modal (Alpine.js) -->
     <div x-data="{ show: false, message: '' }" @booking-success.window="message = $event.detail; show = true; setTimeout(() => show = false, 3000)" x-cloak>
@@ -67,14 +66,31 @@
         </div>
 
         <!-- Room Grid -->
-        <div class="grid grid-cols-10 gap-3 mt-4">
+        <div class="grid grid-cols-10 gap-3 mt-4 relative overflow-visible">
             @foreach(array_reverse(range(1, 10)) as $floor)
                 @foreach(range(($floor * 100) + 1, ($floor == 10 ? ($floor * 100) + 7 : ($floor * 100) + 10)) as $room)
-                    <div class="w-20 h-20 border p-4 flex items-center font-medium rounded-xl shadow-lg justify-center 
-                                hover:scale-105 transform transition duration-300 cursor-pointer
-                                {{ in_array($room, $rooms) ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-red-500 text-white' }}">
-                        {{ $room }}
+                <div x-data="{ showTooltip: false }" 
+                    @mouseenter="showTooltip = true" 
+                    @mouseleave="showTooltip = false"
+                    class="relative w-20 h-20 border p-4 flex items-center font-medium rounded-xl shadow-lg justify-center 
+                        hover:scale-105 transform transition duration-300 cursor-pointer
+                        {{ in_array($room, $rooms) ? 'bg-gray-200 hover:bg-gray-300 text-black' : 'bg-gray-400 text-black' }}">
+                    
+                    <!-- Room Number -->
+                    {{ $room }}
+
+                    <!-- Hover Tooltip -->
+                    <div x-show="showTooltip" x-cloak 
+                        class="absolute top-[-3.5rem] left-1/2 -translate-x-1/2 bg-white text-gray-700 p-2 
+                            rounded-lg shadow-lg text-sm z-[9999] flex flex-col items-center pointer-events-none
+                            after:content-[''] after:absolute after:top-full after:left-1/2 
+                            after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-white"
+                        style="width: 120px; height: 80px;">
+                        <p><strong>Room {{ $room }}</strong></p>
+                        <p>Floor: {{ floor($room / 100) }}</p>
+                        <p>{{ in_array($room, $rooms) ? 'Available' : 'Booked' }}</p>
                     </div>
+                </div>
                 @endforeach
 
                 @if($floor == 10)
@@ -85,10 +101,11 @@
                 @endif
             @endforeach
         </div>
+
     </div>
 </div>
 
-<!-- Alpine.js Script to Listen for Livewire Event -->
+<!-- Alpine.js Script to Listen for Livewire Events -->
 <script>
     document.addEventListener("DOMContentLoaded", function () {
         Livewire.on('bookingSuccess', (message) => {
@@ -100,4 +117,3 @@
         });
     });
 </script>
-
