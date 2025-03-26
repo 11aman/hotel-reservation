@@ -29,7 +29,7 @@ Stairs and lift are on the left side of the building.
 
 1. Clone the Repository
 
-    git clone https://github.com/your-repo/hotel-booking.git
+    git clone https://github.com/11aman/hotel-reservation.git
     cd hotel-booking
 
 2. Install Dependencies
